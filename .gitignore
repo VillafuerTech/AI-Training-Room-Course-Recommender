@@ -1,41 +1,92 @@
-# Byte-compiled / cache
+# =======================
+# Python
+# =======================
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 *.pyc
+*.so
+*.egg
+*.egg-info/
+.eggs/
 
-# Virtual env
+# =======================
+# Virtual environments
+# =======================
 .venv/
 venv/
 ENV/
+env/
 
-# Jupyter
+# =======================
+# Jupyter & notebooks
+# =======================
 .ipynb_checkpoints/
 .notebooks_cache/
+*.nbconvert.ipynb
 
+# =======================
 # Data & artifacts
+# =======================
 data/raw/*
 data/external/*
-logs/
-tmp/
+data/interim/*
+data/processed/*
+
 !data/.gitkeep
 !data/raw/.gitkeep
 !data/external/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
 
-# OS / IDE
-.DS_Store
-*.swp
-.vscode/
-.idea/
-
-# Models
 models/*
 !models/.gitkeep
 
+logs/*
+!logs/.gitkeep
+
+tmp/*
+!tmp/.gitkeep
+
+# =======================
 # Reports
+# =======================
 reports/figures/*
 !reports/figures/.gitkeep
 
-# Secrets
+reports/*.html
+reports/*.pdf
+reports/*.docx
+
+# =======================
+# OS / IDE
+# =======================
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+*.iml
+
+# =======================
+# Testing / CI
+# =======================
+.coverage
+coverage.xml
+.pytest_cache/
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# =======================
+# Secrets & configs
+# =======================
 .env
+.env.*
+secrets.json
+config.yaml
+*.crt
+*.key
