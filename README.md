@@ -14,10 +14,9 @@ A production-quality, local-first course recommender that combines **content sig
 - [Evaluation](#evaluation)
 - [Repository Layout](#repository-layout)
 - [Reproducibility](#reproducibility)
-- [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
-- [Citation](#citation)
+
 
 ---
 
