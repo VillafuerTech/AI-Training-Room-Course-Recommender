@@ -1,0 +1,414 @@
+\documentclass[aspectratio=169]{beamer}
+
+% ---------- THEMING ----------
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+\usefonttheme{professionalfonts}
+
+% ---------- PACKAGES ----------
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{siunitx}
+\usepackage{hyperref}
+\usepackage{xspace}
+\usepackage{array}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% ---------- MACROS (from your EDA) ----------
+\newcommand{\users}{33{,}901}
+\newcommand{\items}{307}
+\newcommand{\interactions}{233{,}306}
+\newcommand{\density}{2.24\%}
+\newcommand{\sparsity}{97.76\%}
+
+% ---------- TITLE ----------
+\title[ML Capstone: Recommender Systems]{Machine Learning Capstone\\Personalized Course Recommender Systems}
+\author{Roberto Villafuerte Carrillo}
+\institute{IBM ML321EN Capstone}
+\date{\today}
+
+\begin{document}
+
+% ---------- TITLE ----------
+\begin{frame}
+  \titlepage
+\end{frame}
+
+
+% =========================================================
+\section{Introduction}
+% =========================================================
+
+\begin{frame}{Problem \& Goals}
+\textbf{Objective.} Build a recommender system that suggests relevant online courses to learners.
+
+\textbf{Key questions}
+\begin{itemize}
+  \item What content patterns exist in course catalog \& enrollments?
+  \item How do content-based vs. collaborative filtering (CF) approaches compare?
+  \item Can neural embeddings improve recommendations?
+\end{itemize}
+
+\textbf{Deliverables}
+\begin{itemize}
+  \item EDA and feature engineering
+  \item Content-based recommenders (3 variants)
+  \item CF: KNN, NMF, NN-embeddings
+  \item Supervised models (Regression \& Classification using embeddings)
+  \item Offline evaluation \& conclusions
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Data Overview}
+\begin{itemize}
+  \item \textbf{Ratings / Enrollments:} \interactions
+  \item \textbf{Unique Users:} \users
+  \item \textbf{Courses (with metadata):} \items
+  \item \textbf{Rating values:} \{3, 4, 5\}
+\end{itemize}
+
+\bigskip
+\textbf{User–Item Matrix}
+\[
+\users \times \items = 10{,}407{,}607 \quad\Rightarrow\quad
+\text{Density } \approx \density,\; \text{Sparsity } \approx \sparsity
+\]
+\end{frame}
+
+% =========================================================
+\section{Exploratory Data Analysis (EDA)}
+% =========================================================
+
+\begin{frame}{Course Titles — Keyword Snapshot}
+\begin{columns}[c]
+  \begin{column}{0.60\textwidth}
+    % Export your wordcloud to this path
+    \includegraphics[width=\linewidth]{reports/figures/wordcloud_titles.png}
+  </div>
+  \end{column}
+  \begin{column}{0.38\textwidth}
+    \textbf{Prominent themes}
+    \begin{itemize}
+      \item Python, Data Science, Machine Learning, Big Data, AI
+      \item TensorFlow, Spark, SQL, Visualization
+      \item Cloud, Containers/Docker, Microservices
+    \end{itemize}
+  \end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{User Activity — Courses per User}
+\begin{itemize}
+  \item \textbf{Users}: \users \quad \textbf{Mean}: 6.88 \quad \textbf{Median}: 6
+  \item \textbf{Min}: 1 \quad \textbf{75th pct}: 9 \quad \textbf{Max}: 61
+\end{itemize}
+
+\medskip
+\textit{Long–tail engagement: most users rate a handful; a small cohort is highly active.}
+
+\bigskip
+\centering
+% Export your seaborn histogram to this path
+\includegraphics[width=0.5\linewidth]{reports/figures/hist_user_ratings_count.png}
+\end{frame}
+
+\begin{frame}{Top–20 Most Enrolled Courses (63.3\% of all enrollments)}
+\small
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Course ID} & \textbf{Title} & \textbf{Enrolls} \\
+\midrule
+PY0101EN & python for data science & 14{,}936 \\
+DS0101EN & introduction to data science & 14{,}477 \\
+BD0101EN & big data 101 & 13{,}291 \\
+BD0111EN & hadoop 101 & 10{,}599 \\
+DA0101EN & data analysis with python & 8{,}303 \\
+DS0103EN & data science methodology & 7{,}719 \\
+ML0101ENv3 & machine learning with python & 7{,}644 \\
+BD0211EN & spark fundamentals i & 7{,}551 \\
+DS0105EN & data science hands on with open source tools & 7{,}199 \\
+BC0101EN & blockchain essentials & 6{,}719 \\
+DV0101EN & data visualization with python & 6{,}709 \\
+ML0115EN & deep learning 101 & 6{,}323 \\
+CB0103EN & build your own chatbot & 5{,}512 \\
+RP0101EN & r for data science & 5{,}237 \\
+ST0101EN & statistics 101 & 5{,}015 \\
+CC0101EN & introduction to cloud & 4{,}983 \\
+CO0101EN & docker essentials: a developer introduction & 4{,}480 \\
+DB0101EN & sql and relational databases 101 & 3{,}697 \\
+BD0115EN & mapreduce and yarn & 3{,}670 \\
+DS0301EN & data privacy fundamentals & 3{,}624 \\
+\bottomrule
+\end{tabular}
+
+\medskip
+\textbf{Concentration:} Top–20 \(\approx\) \textbf{63.3\%} of all \interactions\ enrollments.
+\end{frame}
+
+% =========================================================
+\section{Feature Engineering}
+% =========================================================
+
+\begin{frame}{Feature Engineering — Summary}
+\begin{itemize}
+  \item \textbf{Content features}: binary genre flags, bag-of-words/TF--IDF from titles/descriptions (if available)
+  \item \textbf{Interaction features}: user/item IDs, ratings (3/4/5)
+  \item \textbf{Neural embeddings}: user/item embedding vectors (dim = 16), concatenation/aggregation for supervised tasks
+  \item \textbf{User profiles}: genre-weighted profiles from historical enrollments/ratings
+\end{itemize}
+\end{frame}
+
+% =========================================================
+\section{Content-Based Recommenders}
+% =========================================================
+
+\subsection{User Profile \& Genres}
+\begin{frame}{Content-Based: User Profile \& Genres}
+\textbf{Method}
+\begin{itemize}
+  \item Build a user vector as normalized average of genres from interacted courses (optionally weighted by rating)
+  \item Score a candidate course by cosine similarity to the user profile
+\end{itemize}
+
+\textbf{Output}
+\begin{itemize}
+  \item Top--N per user; cold-start friendly
+\end{itemize}
+
+\medskip
+\textbf{Add:} Insert a small example table (\texttt{reports/figures/cb\_profile\_example.png})
+\end{frame}
+
+\subsection{Course Similarity}
+\begin{frame}{Content-Based: Course--Course Similarity}
+\textbf{Method}
+\begin{itemize}
+  \item Represent courses via genres + title TF--IDF vectors
+  \item Recommend items similar to a user’s previously liked items (item-item cosine)
+\end{itemize}
+
+\textbf{Notes}
+\begin{itemize}
+  \item Good for “more like this”
+  \item Diversify via MMR or genre constraints
+\end{itemize}
+
+% \medskip
+% \centering
+% \includegraphics[width=0.78\linewidth]{reports/figures/cb_course_sim_matrix.png} % optional
+\end{frame}
+
+\subsection{User Profile Clustering}
+\begin{frame}{Content-Based: User Profile Clustering}
+\textbf{Method}
+\begin{itemize}
+  \item KMeans on user genre profiles to identify personas
+  \item Recommend cluster-top courses to members
+\end{itemize}
+\textbf{Diagnostics}
+\begin{itemize}
+  \item Silhouette / inertia plots for K selection
+\end{itemize}
+
+% \medskip
+% \centering
+% \includegraphics[width=0.78\linewidth]{reports/figures/cb_cluster_silhouette.png} % optional
+\end{frame}
+
+% =========================================================
+\section{Collaborative Filtering}
+% =========================================================
+
+\subsection{KNN-based CF}
+\begin{frame}{Collaborative Filtering: KNN (Surprise)}
+\textbf{Setup}
+\begin{itemize}
+  \item KNNBasic / KNNWithMeans, user- or item-based
+  \item Similarities: cosine / msd / pearson; typical \(k \in [20, 80]\)
+\end{itemize}
+
+\textbf{Metrics}
+\begin{itemize}
+  \item RMSE/MAE on ratings; Precision@K / Recall@K for top--N
+\end{itemize}
+
+% \medskip
+% \centering
+% \includegraphics[width=0.78\linewidth]{reports/figures/cf_knn_eval.png} % add your chart
+\end{frame}
+
+\subsection{NMF-based CF}
+\begin{frame}{Collaborative Filtering: NMF}
+\textbf{Method}
+\[
+A \approx U \cdot I^\top,\quad U\in \mathbb{R}_+^{|\mathcal{U}|\times r},\; I\in \mathbb{R}_+^{|\mathcal{I}|\times r}
+\]
+\begin{itemize}
+  \item Rank \(r\) (e.g., 37 as used in lab); train on sparse matrix
+  \item Predict \(\hat{r}_{ui} = U_u \cdot I_i^\top\)
+\end{itemize}
+
+% \medskip
+% \centering
+% \includegraphics[width=0.78\linewidth]{reports/figures/cf_nmf_eval.png} % add your chart
+\end{frame}
+
+\subsection{Neural Embedding CF}
+\begin{frame}{Collaborative Filtering: Neural Embeddings}
+\textbf{Architecture}
+\begin{itemize}
+  \item Embedding layers for user \& item (dim = 16)
+  \item Concatenate \(\rightarrow\) MLP \(\rightarrow\) regression head (rating)
+\end{itemize}
+
+\textbf{Outputs}
+\begin{itemize}
+  \item Trained embeddings reusable for other tasks
+\end{itemize}
+
+% \medskip
+% \centering
+% \includegraphics[width=0.78\linewidth]{reports/figures/cf_nn_training_curve.png}\\[0.5em]
+% \includegraphics[width=0.58\linewidth]{reports/figures/cf_nn_embeddings_tsne.png}
+\end{frame}
+
+% =========================================================
+\section{Supervised Models with Embeddings}
+% =========================================================
+
+\subsection{Regression (Rating Score)}
+\begin{frame}{Supervised: Regression on Interaction Embeddings}
+\textbf{Features}
+\begin{itemize}
+  \item Aggregated interaction vector: \(X = U\_e \oplus I\_e\) (element-wise add)
+\end{itemize}
+\textbf{Models}
+\begin{itemize}
+  \item Linear Regression, Ridge/Lasso/ElasticNet
+\end{itemize}
+\textbf{Metric}
+\begin{itemize}
+  \item RMSE on held-out test set
+\end{itemize}
+
+% \medskip
+% \centering
+% \includegraphics[width=0.78\linewidth]{reports/figures/sup_reg_rmse.png} % add your chart
+\end{frame}
+
+\subsection{Classification (Rating Mode)}
+\begin{frame}{Supervised: Classification of Rating Mode}
+\textbf{Labels}
+\begin{itemize}
+  \item Encode \(\{3,4,5\} \rightarrow \{0,1,2\}\) via LabelEncoder
+\end{itemize}
+\textbf{Models}
+\begin{itemize}
+  \item Logistic Regression, Random Forest, SVM, Gradient Boosting
+\end{itemize}
+\textbf{Metrics}
+\begin{itemize}
+  \item Accuracy, Precision, Recall, F1
+\end{itemize}
+
+% \medskip
+% \centering
+% \includegraphics[width=0.78\linewidth]{reports/figures/sup_cls_metrics.png} % add your chart
+\end{frame}
+
+% =========================================================
+\section{Evaluation \& Comparison}
+% =========================================================
+
+\begin{frame}{Evaluation Protocol}
+\begin{itemize}
+  \item \textbf{Split:} train/validation/test on interactions
+  \item \textbf{Rating metrics:} RMSE/MAE (CF \& regression)
+  \item \textbf{Ranking metrics:} Precision@K, Recall@K, MAP@K, nDCG@K
+  \item \textbf{Cold-start:} evaluate new users/items via content-based
+\end{itemize}
+\end{frame}
+
+
+% --------- ADDED FRAME (Top-10 table) ----------
+\begin{frame}{Model Comparison — Top-10 (by F1)}
+\scriptsize
+\begin{table}[ht]
+\centering
+\begin{tabular}{llcccc}
+\toprule
+Model & Aggregation & Accuracy & Precision & Recall & F1 \\
+\midrule
+SVC & concat & 0.678500 & 0.689600 & 0.678500 & 0.682000 \\
+SVC & sum & 0.676500 & 0.687200 & 0.676500 & 0.679800 \\
+RandomForest & sum & 0.648700 & 0.651900 & 0.648800 & 0.650100 \\
+SVC & prod & 0.634600 & 0.655400 & 0.634600 & 0.639900 \\
+RandomForest & concat & 0.638100 & 0.636000 & 0.638200 & 0.636900 \\
+RandomForest & prod & 0.630600 & 0.637600 & 0.630700 & 0.633300 \\
+LogisticRegression & prod & 0.615900 & 0.613500 & 0.616000 & 0.614600 \\
+GradientBoosting & prod & 0.615100 & 0.612600 & 0.615300 & 0.613800 \\
+GradientBoosting & concat & 0.594000 & 0.583900 & 0.594300 & 0.583100 \\
+GradientBoosting & sum & 0.570200 & 0.560100 & 0.570400 & 0.556600 \\
+\bottomrule
+\end{tabular}
+\caption{Top-10 models overall (by macro-F1) from the classification lab.}
+\end{table}
+
+\medskip
+\textit{Best-by-aggregation:} concat $\rightarrow$ SVC (F1 = 0.682) \quad
+sum $\rightarrow$ SVC (F1 = 0.680) \quad
+prod $\rightarrow$ SVC (F1 = 0.640).
+\end{frame}
+% --------- END ADDED FRAME ----------
+
+% =========================================================
+\section{Conclusions \& Next Steps}
+% =========================================================
+
+\begin{frame}{Conclusions}
+\begin{itemize}
+  \item The catalog is \textbf{IT-focused} (Python/DS/ML/Cloud) with \textbf{head-heavy popularity} (Top–20 = 63.3\%).
+  \item \textbf{Content-based} methods handle cold-start and give explainable suggestions.
+  \item \textbf{CF} captures collaborative signals; NMF and neural embeddings provide compact latent factors.
+  \item \textbf{Supervised} models on embeddings are a flexible add-on for rating prediction.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Recommendations \& Future Work}
+\begin{itemize}
+  \item Hybrid ranker (Content + CF) with learning-to-rank on offline labels
+  \item Diversification/serendipity constraints to fight popularity bias
+  \item Contextual bandits for online exploration vs. exploitation
+  \item A/B testing framework; fairness \& coverage monitoring
+\end{itemize}
+\end{frame}
+
+% =========================================================
+\section{Appendix}
+% =========================================================
+
+\begin{frame}{Environment \& Reproducibility}
+\begin{itemize}
+  \item Python 3.12; numpy 1.26.4; pandas 2.3.2; seaborn 0.13.2; matplotlib 3.10.6
+  \item wordcloud 1.9.4; scikit-learn; Surprise (for KNN/NMF)
+  \item Repo layout with \texttt{data/}, \texttt{notebooks/}, \texttt{src/}, \texttt{reports/figures/}
+\end{itemize}
+
+\textbf{Notes}
+\begin{itemize}
+  \item Save figures used in slides to \texttt{reports/figures/}
+  \item Set seeds (\texttt{rs = 123}) for reproducibility
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Thank you}
+\centering
+\Large Questions?
+\end{frame}
+
+\end{document}
